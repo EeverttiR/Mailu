@@ -802,6 +802,17 @@ class Token(Base):
         backref=db.backref('tokens', cascade='all, delete-orphan'))
     password = db.Column(db.String(255), nullable=False)
     ip = db.Column(CommaSeparatedList, nullable=True, default=list)
+    scopes = db.Column(CommaSeparatedList, nullable=True, default=list)
+
+    ALL_SCOPES = {'webmail', 'imap', 'pop3', 'smtp'}
+
+    def allows_scope(self, scope):
+        if not scope:
+            return True
+        token_scopes = set(self.scopes or [])
+        if not token_scopes:
+            return True
+        return scope in token_scopes
 
     def check_password(self, password):
         """ verifies password against stored hash

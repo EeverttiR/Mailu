@@ -8,6 +8,16 @@ from .. import common
 from ... import models
 
 db = models.db
+VALID_TOKEN_SCOPES = sorted(models.Token.ALL_SCOPES)
+
+
+def validate_scopes(scopes):
+    if scopes is None:
+        return None
+    invalid_scopes = sorted(set(scopes) - set(VALID_TOKEN_SCOPES))
+    if invalid_scopes:
+        return f'Provided Scopes {invalid_scopes} are invalid. Valid scopes are {VALID_TOKEN_SCOPES}'
+    return None
 
 token = api.namespace('token', description='Token operations')
 
@@ -15,6 +25,7 @@ token_user_fields = api.model('TokenGetResponse', {
     'id': fields.String(description='The record id of the token (unique identifier)', example='1'),
     'email': fields.String(description='The email address of the user', example='John.Doe@example.com', attribute='user_email'),
     'comment': fields.String(description='A description for the token. This description is shown on the Authentication tokens page', example='my comment'),
+    'Scopes': fields.List(fields.String(description='Allowed services for this token. Empty means all services.', example='imap'), attribute='scopes'),
     'AuthorizedIP': fields.List(fields.String(description='White listed IP addresses or networks that may use this token.', example="203.0.113.0/24"), attribute='ip'),
     'Created': fields.String(description='The date when the token was created', example='John.Doe@example.com', attribute='created_at'),
     'Last edit': fields.String(description='The date when the token was last modifified', example='John.Doe@example.com', attribute='updated_at')
@@ -23,11 +34,13 @@ token_user_fields = api.model('TokenGetResponse', {
 token_user_fields_post = api.model('TokenPost', {
     'email': fields.String(description='The email address of the user', example='John.Doe@example.com', attribute='user_email', required=True),
     'comment': fields.String(description='A description for the token. This description is shown on the Authentication tokens page', example='my comment'),
+    'Scopes': fields.List(fields.String(description='Allowed services for this token. Empty means all services.', example='imap')),
     'AuthorizedIP': fields.List(fields.String(description='White listed IP addresses or networks that may use this token.', example="203.0.113.0/24")),
 })
 
 token_user_fields_post2 = api.model('TokenPost2', {
     'comment': fields.String(description='A description for the token. This description is shown on the Authentication tokens page', example='my comment'),
+    'Scopes': fields.List(fields.String(description='Allowed services for this token. Empty means all services.', example='imap')),
     'AuthorizedIP': fields.List(fields.String(description='White listed IP addresses or networks that may use this token.', example="203.0.113.0/24")),
 })
 
@@ -36,6 +49,7 @@ token_user_post_response = api.model('TokenPostResponse', {
     'token': fields.String(description='The created authentication token for the user.', example='2caf6607de5129e4748a2c061aee56f2', attribute='password'),
     'email': fields.String(description='The email address of the user', example='John.Doe@example.com', attribute='user_email'),
     'comment': fields.String(description='A description for the token. This description is shown on the Authentication tokens page', example='my comment'),
+    'Scopes': fields.List(fields.String(description='Allowed services for this token. Empty means all services.', example='imap'), attribute='scopes'),
     'AuthorizedIP': fields.List(fields.String(description='White listed IP addresses or networks that may use this token.', example="203.0.113.0/24")),
     'Created': fields.String(description='The date when the token was created', example='John.Doe@example.com', attribute='created_at')
 })
@@ -81,6 +95,11 @@ class Tokens(Resource):
                 if (not validators.ip_address.ipv4(ip,cidr=True, strict=False, host_bit=False) and
                     not validators.ip_address.ipv6(ip,cidr=True, strict=False, host_bit=False)):
                     return { 'code': 400, 'message': f'Provided AuthorizedIP {ip} in {token_new.ip} is invalid'}, 400
+        if 'Scopes' in data:
+            validation_error = validate_scopes(data['Scopes'])
+            if validation_error:
+                return {'code': 400, 'message': validation_error}, 400
+            token_new.scopes = data['Scopes']
         raw_password = pwd.genword(entropy=128, length=32, charset="hex")
         token_new.set_password(raw_password)
         models.db.session.add(token_new)
@@ -91,6 +110,7 @@ class Tokens(Resource):
             'token' : raw_password,
             'email' : token_new.user_email,
             'comment' : token_new.comment,
+            'Scopes' : token_new.scopes,
             'AuthorizedIP' : token_new.ip,
             'Created': str(token_new.created_at),
             }
@@ -120,6 +140,7 @@ class Token(Resource):
                 'id' : token.id,
                 'email' : token.user_email,
                 'comment' : token.comment,
+                'Scopes' : token.scopes,
                 'AuthorizedIP' : token.ip,
                 'Created': str(token.created_at),
                 'Last edit': str(token.updated_at)
@@ -153,6 +174,11 @@ class Token(Resource):
                 if (not validators.ip_address.ipv4(ip,cidr=True, strict=False, host_bit=False) and
                     not validators.ip_address.ipv6(ip,cidr=True, strict=False, host_bit=False)):
                     return { 'code': 400, 'message': f'Provided AuthorizedIP {ip} in {token_new.ip} is invalid'}, 400
+        if 'Scopes' in data:
+            validation_error = validate_scopes(data['Scopes'])
+            if validation_error:
+                return {'code': 400, 'message': validation_error}, 400
+            token_new.scopes = data['Scopes']
         raw_password = pwd.genword(entropy=128, length=32, charset="hex")
         token_new.set_password(raw_password)
         models.db.session.add(token_new)
@@ -163,6 +189,7 @@ class Token(Resource):
             'token' : raw_password,
             'email' : token_new.user_email,
             'comment' : token_new.comment,
+            'Scopes' : token_new.scopes,
             'AuthorizedIP' : token_new.ip,
             'Created': str(token_new.created_at),
             }
@@ -185,6 +212,7 @@ class Token(Resource):
             'id' : token.id,
             'email' : token.user_email,
             'comment' : token.comment,
+            'Scopes' : token.scopes,
             'AuthorizedIP' : token.ip,
             'Created': str(token.created_at),
             'Last edit': str(token.updated_at)
@@ -214,6 +242,11 @@ class Token(Resource):
                 if (not validators.ip_address.ipv4(ip,cidr=True, strict=False, host_bit=False) and
                     not validators.ip_address.ipv6(ip,cidr=True, strict=False, host_bit=False)):
                     return { 'code': 400, 'message': f'Provided AuthorizedIP {ip} in {token.ip} is invalid'}, 400
+        if 'Scopes' in data:
+            validation_error = validate_scopes(data['Scopes'])
+            if validation_error:
+                return {'code': 400, 'message': validation_error}, 400
+            token.scopes = data['Scopes']
         models.db.session.add(token)
         #apply the changes
         db.session.commit()

@@ -157,6 +157,13 @@ class UserReplyForm(flask_wtf.FlaskForm):
 
 
 class TokenForm(flask_wtf.FlaskForm):
+    scope_choices = [
+        ('webmail', _('Webmail')),
+        ('imap', 'IMAP'),
+        ('pop3', 'POP3'),
+        ('smtp', 'SMTP'),
+    ]
+
     displayed_password = fields.StringField(
         _('Your token (write it down, as it will never be displayed again)')
     )
@@ -164,6 +171,11 @@ class TokenForm(flask_wtf.FlaskForm):
     comment = fields.StringField(_('Comment'), render_kw=AUTOFOCUS)
     ip = fields.StringField(
         _('Authorized IP'), [validators.Optional()], render_kw=NO_AUTOCOMPLETE
+    )
+    scopes = fields.SelectMultipleField(
+        _('Scopes'),
+        choices=scope_choices,
+        description=_('Leave empty to allow all services'),
     )
     submit = fields.SubmitField(_('Save'))
 
@@ -175,6 +187,12 @@ class TokenForm(flask_wtf.FlaskForm):
                 ipaddress.ip_network(candidate, False)
         except:
             raise validators.ValidationError('Not a valid list of CIDRs')
+
+    def validate_scopes(form, field):
+        valid_scopes = {choice[0] for choice in form.scope_choices}
+        unknown_scopes = set(field.data or []) - valid_scopes
+        if unknown_scopes:
+            raise validators.ValidationError('Invalid token scope(s)')
 
 class AliasForm(flask_wtf.FlaskForm):
     localpart = fields.StringField(_('Alias'), [validators.DataRequired(), validators.Regexp(LOCALPART_REGEX)], render_kw=NO_AUTOCOMPLETE)

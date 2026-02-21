@@ -33,6 +33,7 @@ def token_create(user_email):
         token = models.Token(user=user)
         token.set_password(form.raw_password.data)
         form.populate_obj(token)
+        token.scopes = form.scopes.data or []
         if form.ip.data:
             token.ip = form.ip.data.replace(' ','').split(',')
         else:
