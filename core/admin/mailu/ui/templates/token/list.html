@@ -19,6 +19,7 @@
     <th data-orderable="false">{% trans %}Actions{% endtrans %}</th>
     <th>{% trans %}ID{% endtrans %}</th>
     <th>{% trans %}Comment{% endtrans %}</th>
+    <th>{% trans %}Scopes{% endtrans %}</th>
     <th>{% trans %}Authorized IP{% endtrans %}</th>
     <th>{% trans %}Created{% endtrans %}</th>
     <th>{% trans %}Last edit{% endtrans %}</th>
@@ -32,6 +33,7 @@
     </td>
     <td>{{ token.id }}</td>
     <td>{{ token.comment }}</td>
+    <td>{{ token.scopes | join(', ') or "all" }}</td>
     <td>{{ token.ip | join(', ') or "any" }}</td>
     <td data-sort="{{ token.created_at or '0000-00-00' }}">{{ token.created_at | format_date }}</td>
     <td data-sort="{{ token.updated_at or '0000-00-00' }}">{{ token.updated_at | format_date }}</td>

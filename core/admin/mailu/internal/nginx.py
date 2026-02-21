@@ -38,7 +38,18 @@ STATUSES = {
 
 WEBMAIL_PORTS = ['14190', '10143', '10025']
 
+
+def token_scope_for_request(protocol=None, auth_port=None):
+    if auth_port in WEBMAIL_PORTS:
+        return 'webmail'
+    if protocol in {'smtp', 'submission'}:
+        return 'smtp'
+    if protocol in {'imap', 'pop3'}:
+        return protocol
+    return None
+
 def check_credentials(user, password, ip, protocol=None, auth_port=None, source_port=None, raw_user=None):
+    request_scope = token_scope_for_request(protocol, auth_port)
     if not user or not user.enabled or (protocol == "imap" and not user.enable_imap and not auth_port in WEBMAIL_PORTS) or (protocol == "pop3" and not user.enable_pop):
         app.logger.info(f'Login attempt for: {user or raw_user!r}/{protocol}/{auth_port} from: {ip}/{source_port}: failed: account disabled')
         return False
@@ -50,6 +61,9 @@ def check_credentials(user, password, ip, protocol=None, auth_port=None, source_
     if utils.is_app_token(password):
         for token in user.tokens:
             if token.check_password(password):
+                if not token.allows_scope(request_scope):
+                    app.logger.info(f'Login attempt for: {user}/{protocol}/{auth_port} from: {ip}/{source_port}: failed: badscope: token-{token.id}: {token.comment or ""!r}')
+                    return False
                 if not token.ip or utils.is_ip_in_subnet(ip, token.ip):
                     app.logger.info(f'Login attempt for: {user}/{protocol}/{auth_port} from: {ip}/{source_port}: success: token-{token.id}: {token.comment or ""!r}')
                     return True
